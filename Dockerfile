@@ -29,44 +29,36 @@ RUN apt-get update -yq --fix-missing \
 
 # Install and setup conda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -u -p /opt/conda && \
-    /opt/conda/bin/conda init bash && \
-    echo "source /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate nerfstream" >> ~/.bashrc
+    bash Miniconda3-latest-Linux-x86_64.sh -b -u -p /opt/conda
+
+# Add conda to PATH and initialize
+ENV PATH=/opt/conda/bin:$PATH
+RUN conda init bash && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 
 # Create conda environment and install PyTorch
-SHELL ["/bin/bash", "--login", "-c"]
-RUN conda create -n nerfstream python=3.10 -y && \
-    conda activate nerfstream && \
-    conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y
+RUN /opt/conda/bin/conda create -n nerfstream python=3.10 -y && \
+    /opt/conda/bin/conda install -n nerfstream pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y
 
-# Set pip mirror
-RUN conda activate nerfstream && \
-    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
-
-# Copy and install requirements
+# Set pip mirror and install requirements
 COPY requirements.txt ./
-RUN conda activate nerfstream && \
-    pip install --no-cache-dir -r requirements.txt
+RUN /opt/conda/bin/conda run -n nerfstream pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir -r requirements.txt
 
 # Install additional packages
-RUN conda activate nerfstream && \
-    pip install --no-cache-dir "git+https://github.com/facebookresearch/pytorch3d.git" && \
-    pip install --no-cache-dir tensorflow-gpu==2.8.0 && \
-    pip uninstall -y protobuf && \
-    pip install --no-cache-dir protobuf==3.20.1 && \
-    conda install -y ffmpeg
+RUN /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir "git+https://github.com/facebookresearch/pytorch3d.git" && \
+    /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir tensorflow-gpu==2.8.0 && \
+    /opt/conda/bin/conda run -n nerfstream pip uninstall -y protobuf && \
+    /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir protobuf==3.20.1 && \
+    /opt/conda/bin/conda install -n nerfstream -y ffmpeg
 
 # Copy application code
 COPY ./python_rtmpstream ./python_rtmpstream
 WORKDIR /app/python_rtmpstream/python
-RUN conda activate nerfstream && \
-    pip install .
+RUN /opt/conda/bin/conda run -n nerfstream pip install .
 
 COPY ./nerfstream ./nerfstream
 WORKDIR /app/nerfstream
 
-
-# Set the default shell to bash and activate conda environment
-SHELL ["/bin/bash", "--login", "-c"]
-CMD ["python3", "app.py"]
+# Set the default command
+CMD ["/opt/conda/bin/conda", "run", "-n", "nerfstream", "python3", "app.py"]
