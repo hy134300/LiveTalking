@@ -66,6 +66,7 @@ RUN conda activate nerfstream && \
 COPY ./nerfstream ./nerfstream
 WORKDIR /app/nerfstream
 
+
 # Set the default shell to bash and activate conda environment
 SHELL ["/bin/bash", "--login", "-c"]
 CMD ["python3", "app.py"]
