@@ -52,10 +52,10 @@ RUN /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir "git+https
     /opt/conda/bin/conda run -n nerfstream pip install --no-cache-dir protobuf==3.20.1 && \
     /opt/conda/bin/conda install -n nerfstream -y ffmpeg
 
-# Copy application code
+# Copy application code and install
 COPY ./python_rtmpstream ./python_rtmpstream
 WORKDIR /app/python_rtmpstream/python
-RUN /opt/conda/bin/conda run -n nerfstream pip install .
+RUN /opt/conda/bin/conda run -n nerfstream bash -c "pip install -e . || (cat setup.py && exit 1)"
 
 COPY ./nerfstream ./nerfstream
 WORKDIR /app/nerfstream
