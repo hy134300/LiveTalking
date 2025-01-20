@@ -33,25 +33,23 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh &
 SHELL ["/bin/bash", "-c"]
 ENV PATH="/root/miniconda3/bin:${PATH}"
 RUN conda init bash && \
-    conda create -n nerfstream python=3.10 -y && \
-    conda activate nerfstream
+    conda create -n nerfstream python=3.10 -y
 
-# Use conda run to ensure commands run in the correct environment
+# Use conda run for all subsequent commands
 RUN conda run -n nerfstream pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
-# install depend
-RUN conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch
-Copy requirements.txt ./
-RUN pip install -r requirements.txt
+RUN conda run -n nerfstream conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y
+COPY requirements.txt ./
+RUN conda run -n nerfstream pip install -r requirements.txt
 
 # additional libraries
-RUN pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-RUN pip install tensorflow-gpu==2.8.0
+RUN conda run -n nerfstream pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+RUN conda run -n nerfstream pip install tensorflow-gpu==2.8.0
 
-RUN pip uninstall protobuf
-RUN pip install protobuf==3.20.1
+RUN conda run -n nerfstream pip uninstall protobuf -y
+RUN conda run -n nerfstream pip install protobuf==3.20.1
 
-RUN conda install ffmpeg
+RUN conda run -n nerfstream conda install ffmpeg -y
 Copy ../python_rtmpstream /python_rtmpstream
 WORKDIR /python_rtmpstream/python
 RUN pip install .
