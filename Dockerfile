@@ -50,10 +50,10 @@ RUN conda run -n nerfstream pip uninstall protobuf -y
 RUN conda run -n nerfstream pip install protobuf==3.20.1
 
 RUN conda run -n nerfstream conda install ffmpeg -y
-Copy ../python_rtmpstream /python_rtmpstream
+COPY ../python_rtmpstream /python_rtmpstream
 WORKDIR /python_rtmpstream/python
-RUN pip install .
+RUN conda run -n nerfstream pip install .
 
-Copy ../nerfstream /nerfstream
+COPY ../nerfstream /nerfstream
 WORKDIR /nerfstream
-CMD ["python3", "app.py"]
+CMD ["conda", "run", "-n", "nerfstream", "python3", "app.py"]
