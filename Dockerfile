@@ -9,6 +9,8 @@
 ARG BASE_IMAGE=nvcr.io/nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
 FROM $BASE_IMAGE
 
+WORKDIR /app
+
 RUN apt-get update -yq --fix-missing \
  && DEBIAN_FRONTEND=noninteractive apt-get install -yq --no-install-recommends \
     pkg-config \
@@ -25,35 +27,45 @@ RUN apt-get update -yq --fix-missing \
 #ENV NVIDIA_VISIBLE_DEVICES all
 #ENV NVIDIA_DRIVER_CAPABILITIES compute,utility,graphics
 
+# Install and setup conda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    sh Miniconda3-latest-Linux-x86_64.sh -b -u -p ~/miniconda3 && \
-    rm Miniconda3-latest-Linux-x86_64.sh
+    bash Miniconda3-latest-Linux-x86_64.sh -b -u -p /opt/conda && \
+    /opt/conda/bin/conda init bash && \
+    echo "source /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
+    echo "conda activate nerfstream" >> ~/.bashrc
 
-# Initialize conda in bash
-SHELL ["/bin/bash", "-c"]
-ENV PATH="/root/miniconda3/bin:${PATH}"
-RUN conda init bash && \
-    conda create -n nerfstream python=3.10 -y
+# Create conda environment and install PyTorch
+SHELL ["/bin/bash", "--login", "-c"]
+RUN conda create -n nerfstream python=3.10 -y && \
+    conda activate nerfstream && \
+    conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y
 
-# Use conda run for all subsequent commands
-RUN conda run -n nerfstream pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+# Set pip mirror
+RUN conda activate nerfstream && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
-RUN conda run -n nerfstream conda install pytorch==1.12.1 torchvision==0.13.1 cudatoolkit=11.3 -c pytorch -y
+# Copy and install requirements
 COPY requirements.txt ./
-RUN conda run -n nerfstream pip install -r requirements.txt
+RUN conda activate nerfstream && \
+    pip install --no-cache-dir -r requirements.txt
 
-# additional libraries
-RUN conda run -n nerfstream pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-RUN conda run -n nerfstream pip install tensorflow-gpu==2.8.0
+# Install additional packages
+RUN conda activate nerfstream && \
+    pip install --no-cache-dir "git+https://github.com/facebookresearch/pytorch3d.git" && \
+    pip install --no-cache-dir tensorflow-gpu==2.8.0 && \
+    pip uninstall -y protobuf && \
+    pip install --no-cache-dir protobuf==3.20.1 && \
+    conda install -y ffmpeg
 
-RUN conda run -n nerfstream pip uninstall protobuf -y
-RUN conda run -n nerfstream pip install protobuf==3.20.1
+# Copy application code
+COPY ./python_rtmpstream ./python_rtmpstream
+WORKDIR /app/python_rtmpstream/python
+RUN conda activate nerfstream && \
+    pip install .
 
-RUN conda run -n nerfstream conda install ffmpeg -y
-COPY ../python_rtmpstream /python_rtmpstream
-WORKDIR /python_rtmpstream/python
-RUN conda run -n nerfstream pip install .
+COPY ./nerfstream ./nerfstream
+WORKDIR /app/nerfstream
 
-COPY ../nerfstream /nerfstream
-WORKDIR /nerfstream
-CMD ["conda", "run", "-n", "nerfstream", "python3", "app.py"]
+# Set the default shell to bash and activate conda environment
+SHELL ["/bin/bash", "--login", "-c"]
+CMD ["python3", "app.py"]
